@@ -1,0 +1,311 @@
+import pandas as pd
+import re
+import string
+import nltk
+from nltk.stem import WordNetLemmatizer
+from nltk.tokenize import word_tokenize
+import nltk
+from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.model_selection import train_test_split
+from sklearn.linear_model import LogisticRegression 
+from sklearn.metrics import silhouette_score,davies_bouldin_score ,calinski_harabasz_score ,accuracy_score , confusion_matrix , classification_report, recall_score, precision_score
+nltk.download('stopwords')
+nltk.download('punkt')
+nltk.download('wordnet')
+from nltk.corpus import stopwords
+from nltk.tokenize import word_tokenize
+from nltk.stem import WordNetLemmatizer
+from sklearn.naive_bayes import MultinomialNB
+from sklearn.ensemble import RandomForestClassifier ,GradientBoostingClassifier
+import pickle
+import numpy as np
+import seaborn as sns
+import matplotlib.pyplot as plt
+from sklearn.cluster import KMeans
+%matplotlib inline
+import time
+from wordcloud import WordCloud
+from datetime import datetime
+from sklearn.cluster import DBSCAN
+
+import nltk
+nltk.download('punkt')
+nltk.download('averaged_perceptron_tagger')
+nltk.download('wordnet')
+nltk.download('stopwords')
+data = pd.read_csv('Twitter.csv', encoding='latin1' , header=None)
+##
+data[0].value_counts()
+data
+from sklearn.utils import shuffle
+
+data_shuffled = shuffle(data, random_state=42)
+
+# Split the dataset based on labels
+label_0_data = data_shuffled[data_shuffled[0] == 0]
+label_1_data = data_shuffled[data_shuffled[0] == 4]
+
+# Select 100,000 data points for each label
+label_0_subset = label_0_data[:100000]
+label_1_subset = label_1_data[:100000]
+
+# Combine the subsets
+subset = pd.concat([label_0_subset, label_1_subset])
+
+# Shuffle the subset again to mix the labels
+subset = shuffle(subset, random_state=42)
+
+# Select a total of 200,000 data points
+final_subset = subset[:200000]
+
+# Check the distribution of labels in the final subset
+print(final_subset[0].value_counts())
+final_subset
+y_final = final_subset.iloc[:,0]
+X_final = final_subset.drop(0,axis=1)
+y  = data.iloc[:,0]
+X = data.drop(0,axis=1)
+X
+y
+X_train , X_test,y_train,y_test=train_test_split(X_final ,y_final, test_size=0.2)
+X_train.shape
+X_v,X_t,y_v,y_t=train_test_split(X_test ,y_test, test_size=0.2)
+stopwords = set(nltk.corpus.stopwords.words('english'))
+X_train[5]
+X_train
+def remove_url(text):
+    return re.sub(r"http\S+", "", text)
+exclude =string.punctuation
+def remove_punctuation(text):
+    return text.translate(str.maketrans("", "" , exclude))
+def remove_stopwords(text):
+    new_text = []
+    
+    for word in text.split():
+        if word in stopwords:
+            new_text.append('')
+        else:
+            new_text.append(word)
+    x = new_text[:]
+    new_text.clear()
+    return " ".join(x)   
+def lemmatize_text(text):
+    words = word_tokenize(text)
+    lemmatizer = WordNetLemmatizer()
+    lemmatized_words = [lemmatizer.lemmatize(word) for word in words]
+    return " ".join(lemmatized_words)
+def preprocess(X_train):
+    start_time = datetime.now()
+    X_train[5] = X_train[5].str.lower()
+    X_train[5] = X_train[5].apply(remove_url)
+    end_time = datetime.now()
+    elapsed_time = end_time - start_time
+    print(f"Elapsed time for remove_url: {elapsed_time}")
+
+    start_time = datetime.now()
+    X_train[5] = X_train[5].apply(remove_punctuation)
+    end_time = datetime.now()
+    elapsed_time = end_time - start_time
+    print(f"Elapsed time for remove_punctuation: {elapsed_time}")
+
+    start_time = datetime.now()
+    X_train[5] = X_train[5].apply(remove_stopwords)
+    end_time = datetime.now()
+    elapsed_time = end_time - start_time
+    print(f"Elapsed time for remove_stopwords: {elapsed_time}")
+
+    start_time = datetime.now()
+    X_train[5] = X_train[5].apply(lemmatize_text)
+    end_time = datetime.now()
+    elapsed_time = end_time - start_time
+    print(f"Elapsed time for lemmatize_text: {elapsed_time}")
+
+    return X_train
+preprocess(X_train)
+preprocess(X_v)
+tfidf_vectorizer1 = TfidfVectorizer()
+start_time = datetime.now()
+tfidf_matrix = tfidf_vectorizer1.fit_transform(X_train[5])
+end_time = datetime.now()
+elapsed_time = end_time - start_time
+print(f"Elapsed time for fitting and transforming the data: {elapsed_time}")
+
+filename = 'tfidf_vectorizer2.pkl'
+pickle.dump(tfidf_vectorizer1, open(filename, 'wb'))
+X_v
+X_test_pro = tfidf_vectorizer1.transform(X_test[5])
+X_v_processed=tfidf_vectorizer1.transform(X_v[5])
+X_train1 , X_test1,y_train1,y_test1=train_test_split(X ,y, test_size=0.2)
+preprocess(X_train1)
+preprocess(X_test1)
+tfidf_vectorizer = TfidfVectorizer()
+start_time = datetime.now()
+tfidf_matrix1 = tfidf_vectorizer.fit_transform(X_train1[5])
+end_time = datetime.now()
+elapsed_time = end_time - start_time
+print(f"Elapsed time for fitting and transforming the data: {elapsed_time}")
+
+filename = 'tfidf_vectorizer1.pkl'
+pickle.dump(tfidf_vectorizer, open(filename, 'wb'))
+X_test_processed=tfidf_vectorizer.transform(X_test1[5])
+nb_classifier = MultinomialNB()
+nb_classifier.fit(tfidf_matrix1, y_train1)
+
+# Make predictions
+y_pred = nb_classifier.predict(X_test_processed)
+
+# Evaluate the classifier
+accuracy = accuracy_score(y_test1, y_pred)
+print("Accuracy:", accuracy)
+
+# Print classification report
+print("\nClassification Report:")
+print(classification_report(y_test1, y_pred))
+
+cf_matrix = confusion_matrix(y_test1, y_pred)
+
+categories  = ['Negative','Positive']
+group_names = ['True Neg','False Pos', 'False Neg','True Pos']
+group_percentages = ['{0:.2%}'.format(value) for value in cf_matrix.flatten() / np.sum(cf_matrix)]
+
+labels = [f'{v1}\n{v2}' for v1, v2 in zip(group_names,group_percentages)]
+labels = np.asarray(labels).reshape(2,2)
+
+sns.heatmap(cf_matrix, annot = labels, cmap = 'Reds',fmt = '',
+            xticklabels = categories, yticklabels = categories)
+
+plt.xlabel("Predicted values", fontdict = {'size':14}, labelpad = 10)
+plt.ylabel("Actual values"   , fontdict = {'size':14}, labelpad = 10)
+plt.title ("Confusion Matrix", fontdict = {'size':18}, pad = 20)
+
+filename = 'MN_1.pkl'
+pickle.dump(nb_classifier, open(filename, 'wb'))
+lr_model = LogisticRegression( random_state=42)
+
+# Fit the model on the training data
+lr_model.fit(tfidf_matrix1, y_train1)
+
+y_pred_custom = lr_model.predict(X_test_processed)
+
+# Calculate accuracy and print classification report
+accuracy = accuracy_score(y_test1, y_pred_custom)
+classification_r = classification_report(y_test1, y_pred_custom)
+print("Validation Accuracy:", accuracy)
+print("Classification Report:\n", classification_r)
+
+cf_matrix = confusion_matrix(y_test1, y_pred_custom)
+
+categories  = ['Negative','Positive']
+group_names = ['True Neg','False Pos', 'False Neg','True Pos']
+group_percentages = ['{0:.2%}'.format(value) for value in cf_matrix.flatten() / np.sum(cf_matrix)]
+
+labels = [f'{v1}\n{v2}' for v1, v2 in zip(group_names,group_percentages)]
+labels = np.asarray(labels).reshape(2,2)
+
+sns.heatmap(cf_matrix, annot = labels, cmap = 'Reds',fmt = '',
+            xticklabels = categories, yticklabels = categories)
+
+plt.xlabel("Predicted values", fontdict = {'size':14}, labelpad = 10)
+plt.ylabel("Actual values"   , fontdict = {'size':14}, labelpad = 10)
+plt.title ("Confusion Matrix", fontdict = {'size':18}, pad = 20)
+
+filename = 'logistic_1.pkl'
+pickle.dump(lr_model, open(filename, 'wb'))
+## 
+rf = RandomForestClassifier(n_estimators = 1000, criterion = 'entropy',max_depth=50)
+rf.fit(tfidf_matrix, y_train)
+
+y_pred_custom = rf.predict(X_test_pro)
+
+# Calculate accuracy and print classification report
+accuracy = accuracy_score(y_test, y_pred_custom)
+classification_r = classification_report(y_test, y_pred_custom)
+print("Validation Accuracy:", accuracy)
+print("Classification Report:\n", classification_r)
+
+cf_matrix = confusion_matrix(y_test, y_pred_custom)
+
+categories  = ['Negative','Positive']
+group_names = ['True Neg','False Pos', 'False Neg','True Pos']
+group_percentages = ['{0:.2%}'.format(value) for value in cf_matrix.flatten() / np.sum(cf_matrix)]
+
+labels = [f'{v1}\n{v2}' for v1, v2 in zip(group_names,group_percentages)]
+labels = np.asarray(labels).reshape(2,2)
+
+sns.heatmap(cf_matrix, annot = labels, cmap = 'Reds',fmt = '',
+            xticklabels = categories, yticklabels = categories)
+
+plt.xlabel("Predicted values", fontdict = {'size':14}, labelpad = 10)
+plt.ylabel("Actual values"   , fontdict = {'size':14}, labelpad = 10)
+plt.title ("Confusion Matrix", fontdict = {'size':18}, pad = 20)
+
+filename = 'random1.pkl'
+pickle.dump(rf, open(filename, 'wb')) 
+gf = GradientBoostingClassifier(n_estimators = 1000)
+gf.fit(tfidf_matrix, y_train)
+
+y_pred_custom = gf.predict(X_test_pro)
+
+# Calculate accuracy and print classification report
+accuracy = accuracy_score(y_test, y_pred_custom)
+classification_r = classification_report(y_test, y_pred_custom)
+print("Validation Accuracy:", accuracy)
+print("Classification Report:\n", classification_r)
+
+cf_matrix = confusion_matrix(y_test, y_pred_custom)
+
+categories  = ['Negative','Positive']
+group_names = ['True Neg','False Pos', 'False Neg','True Pos']
+group_percentages = ['{0:.2%}'.format(value) for value in cf_matrix.flatten() / np.sum(cf_matrix)]
+
+labels = [f'{v1}\n{v2}' for v1, v2 in zip(group_names,group_percentages)]
+labels = np.asarray(labels).reshape(2,2)
+
+sns.heatmap(cf_matrix, annot = labels, cmap = 'Reds',fmt = '',
+            xticklabels = categories, yticklabels = categories)
+
+plt.xlabel("Predicted values", fontdict = {'size':14}, labelpad = 10)
+plt.ylabel("Actual values"   , fontdict = {'size':14}, labelpad = 10)
+plt.title ("Confusion Matrix", fontdict = {'size':18}, pad = 20)
+
+filename = 'gradient_boost.pkl'
+pickle.dump(gf, open(filename, 'wb')) 
+import tensorflow as tf
+from tensorflow.keras.layers import Embedding, LSTM, Dense
+from tensorflow.keras.models import Sequential
+from transformers import BertTokenizer, TFBertModel
+from tensorflow.keras.preprocessing.sequence import pad_sequences
+from tensorflow.keras.models import Sequential
+from tensorflow.keras.layers import LSTM, Dense, Embedding, SpatialDropout1D
+from tensorflow.keras.optimizers import Adam
+from tensorflow.keras.callbacks import EarlyStopping
+from sklearn.metrics import accuracy_score
+from tensorflow.keras.preprocessing.text import Tokenizer
+
+# Assuming text_data is your preprocessed text data
+max_words = 5000
+max_len = 200
+
+tokenizer = Tokenizer(num_words=max_words)
+tokenizer.fit_on_texts(X_train[5])
+sequences = tokenizer.texts_to_sequences(X_train[5])
+tests = tokenizer.texts_to_sequences(X_v[5])
+tweets = pad_sequences(sequences, maxlen=max_len)
+test = pad_sequences(tests,maxlen=max_len)
+print(tweets)
+from keras.models import Sequential
+from keras import layers
+from keras import regularizers
+from keras import backend as K
+from keras.callbacks import ModelCheckpoint
+model2 = Sequential()
+model2.add(layers.Embedding(max_words, 128))
+model2.add(layers.LSTM(64, dropout=0.5))
+model2.add(layers.Dense(16, activation='relu'))
+model2.add(layers.Dense(8, activation='relu'))
+model2.add(layers.Dense(1, activation='sigmoid'))
+model2.compile(optimizer='adam', loss='binary_crossentropy', metrics=['accuracy'])
+
+checkpoint2 = ModelCheckpoint("rnn_model.keras", monitor='val_accuracy', verbose=1, save_best_only=True, mode='auto', save_weights_only=False)
+history = model2.fit(tweets, y_train, epochs=10, validation_data=(test, y_v), callbacks=[checkpoint2])
+##
